@@ -1,0 +1,105 @@
+{
+  "id": 61,
+  "created_at": "2026-03-20 23:10:59+0000",
+  "updated_at": "2026-07-03 14:10:59+0000",
+  "name": "create_checkout_session",
+  "description": "Creates a Session object.",
+  "docs": "",
+  "guid": "PC6jeRZjWxXlNjDZNK5WfK1BTUU",
+  "auth": false,
+  "cache": {
+    "active": false,
+    "ttl": 3600,
+    "input": true,
+    "auth": true,
+    "datasource": true,
+    "ip": false,
+    "headers": [],
+    "env": []
+  },
+  "verb": "POST",
+  "input": [
+    {
+      "name": "success_url",
+      "type": "text",
+      "description": "User redirect url upon successful payment",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "cancel_url",
+      "type": "text",
+      "description": "User redirect url on cancel of stripe checkout process",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "line_items",
+      "type": "json",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "list"
+    },
+    {
+      "name": "client_reference_id",
+      "type": "text",
+      "description": "",
+      "nullable": true,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "customer_email",
+      "type": "text",
+      "description": "",
+      "nullable": true,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "send_email",
+      "type": "bool",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    }
+  ],
+  "tag": [],
+  "draft_updated_at": null,
+  "xanoscript": {
+    "value": "// Creates a Session object.\nquery create_checkout_session verb=POST {\n  api_group = \"scripters\"\n\n  input {\n    // User redirect url upon successful payment\n    text success_url? filters=trim\n  \n    // User redirect url on cancel of stripe checkout process\n    text cancel_url? filters=trim\n  \n    json[] line_items?\n    text? client_reference_id? filters=trim\n    text? customer_email? filters=trim\n    bool send_email?\n  }\n\n  stack {\n    api.request {\n      url = \"https://api.stripe.com/v1/checkout/sessions\"\n      method = \"POST\"\n      params = {}\n        |set:\"success_url\":$input.success_url\n        |set:\"cancel_url\":$input.cancel_url\n        |set:\"payment_method_types[0]\":\"card\"\n        |set:\"client_reference_id\":$input.client_reference_id\n        |set:\"line_items\":$input.line_items\n        |set_ifnotempty:\"customer_email\":$input.customer_email\n        |set:\"mode\":\"payment\"\n        |set:\"allow_promotion_codes\":\"true\"\n        |set:\"metadata\":{send_email: ($input.send_email | first_notempty: false)}\n      headers = []\n        |push:(\"Authorization: Basic %s\"\n          |sprintf:($env.stripe_key|base64_encode)\n        )\n    } as $stripe_session\n  \n    precondition (($stripe_session.response.result|get:\"error\") == null) {\n      error = $stripe_session.response.result.error.message\n    }\n  }\n\n  response = $stripe_session.response.result\n}",
+    "status": "ok"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": 60,
+  "created_at": "2026-03-20 23:02:14+0000",
+  "updated_at": "2026-04-16 06:44:05+0000",
+  "name": "webhooks",
+  "description": "Webhook endpoint for checkout session ",
+  "docs": "",
+  "guid": "zTl9fnZKjTJmqq_CLlh58XFp6rs",
+  "auth": false,
+  "cache": {
+    "active": false,
+    "ttl": 3600,
+    "input": true,
+    "auth": true,
+    "datasource": true,
+    "ip": false,
+    "headers": [],
+    "env": []
+  },
+  "verb": "POST",
+  "input": [
+    {
+      "name": "__self",
+      "type": "json",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    }
+  ],
+  "tag": [],
+  "draft_updated_at": null,
+  "xanoscript": {
+    "value": "// Webhook endpoint for checkout session \nquery webhooks verb=POST {\n  api_group = \"stripe_checkout\"\n\n  input {\n    json __self?\n  }\n\n  stack {\n    var $webhook_data {\n      value = $input.__self.data.object\n    }\n  \n    db.add session {\n      enforce_hidden_fields = false\n      data = {\n        created_at       : \"now\"\n        session_id       : $webhook_data.id\n        customer_id      : $webhook_data.customer\n        amount_subtotal  : $webhook_data.amount_subtotal\n        amount_total     : $webhook_data.amount_total\n        payment_intent_id: $webhook_data.payment_intent\n        payment_status   : $webhook_data.payment_status\n      }\n    } as $session_1\n  \n    conditional {\n      if ($webhook_data.consent.promotions == \"opt_in\") {\n        api.request {\n          url = \"https://mamas-medicine-frontend-rosy.vercel.app/subscribe-marketing\"\n          method = \"POST\"\n          params = {email: $webhook_data.customer_details.email}\n          headers = []\n            |push:\"Content-Type: application/json\"\n        } as $marketing_res\n      }\n    }\n  }\n\n  response = $session_1\n}",
+    "status": "ok"
+  }
+}

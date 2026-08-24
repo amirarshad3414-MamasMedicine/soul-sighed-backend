@@ -1,0 +1,38 @@
+{
+  "id": 23,
+  "created_at": "2026-03-18 11:48:22+0000",
+  "updated_at": "2026-03-18 11:48:22+0000",
+  "name": "user_01/{user_01_id}",
+  "description": "Delete User_01 record.",
+  "docs": "",
+  "guid": "Z5jnO9sZrAEoTlBDbjmThIhXobo",
+  "auth": false,
+  "cache": {
+    "active": false,
+    "ttl": 3600,
+    "input": true,
+    "auth": true,
+    "datasource": true,
+    "ip": false,
+    "headers": [],
+    "env": []
+  },
+  "verb": "DELETE",
+  "input": [
+    {
+      "name": "user_01_id",
+      "type": "uuid",
+      "description": "",
+      "nullable": false,
+      "required": false,
+      "access": "public",
+      "style": "single"
+    }
+  ],
+  "tag": [],
+  "draft_updated_at": null,
+  "xanoscript": {
+    "value": "// Delete User_01 record.\nquery \"user_01/{user_01_id}\" verb=DELETE {\n  api_group = \"Event Logs\"\n\n  input {\n    uuid user_01_id?\n  }\n\n  stack {\n    db.del User_01 {\n      field_name = \"id\"\n      field_value = $input.user_01_id\n    }\n  }\n\n  response = null\n}",
+    "status": "ok"
+  }
+}

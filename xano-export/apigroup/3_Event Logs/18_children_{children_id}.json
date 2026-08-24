@@ -1,0 +1,42 @@
+{
+  "id": 18,
+  "created_at": "2026-03-18 11:48:22+0000",
+  "updated_at": "2026-03-18 11:48:22+0000",
+  "name": "children/{children_id}",
+  "description": "Delete children record.",
+  "docs": "",
+  "guid": "kk4MSGJPdrZyK1RUjXunJQP8IHs",
+  "auth": false,
+  "cache": {
+    "active": false,
+    "ttl": 3600,
+    "input": true,
+    "auth": true,
+    "datasource": true,
+    "ip": false,
+    "headers": [],
+    "env": []
+  },
+  "verb": "DELETE",
+  "input": [
+    {
+      "name": "children_id",
+      "type": "int",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "min": 1
+      }
+    }
+  ],
+  "tag": [],
+  "draft_updated_at": null,
+  "xanoscript": {
+    "value": "// Delete children record.\nquery \"children/{children_id}\" verb=DELETE {\n  api_group = \"Event Logs\"\n\n  input {\n    int children_id? filters=min:1\n  }\n\n  stack {\n    db.del \"\" {\n      field_name = \"id\"\n      field_value = $input.children_id\n    }\n  }\n\n  response = null\n}",
+    "status": "ok"
+  }
+}

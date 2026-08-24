@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+sqlmodel
+asyncpg
+alembic
+pydantic-settings
+pyjwt
+pwdlib[argon2]
+httpx
+apscheduler
+slowapi
+
+# dev / tooling
+pytest
+pytest-asyncio

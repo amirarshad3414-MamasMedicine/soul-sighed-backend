@@ -1,0 +1,59 @@
+{
+  "id": 5,
+  "created_at": "2026-03-18 11:48:22+0000",
+  "updated_at": "2026-03-18 11:48:22+0000",
+  "name": "reset/magic-link-login",
+  "description": "Exchanges magic token for auth token. Logs in user with the one-time link.",
+  "docs": "",
+  "guid": "uc3GP62N5IzGm23j6GBn4wL4TSY",
+  "auth": false,
+  "cache": {
+    "active": false,
+    "ttl": 3600,
+    "input": true,
+    "auth": true,
+    "datasource": true,
+    "ip": false,
+    "headers": [],
+    "env": []
+  },
+  "verb": "POST",
+  "input": [
+    {
+      "name": "magic_token",
+      "type": "text",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "email",
+      "type": "text",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    }
+  ],
+  "tag": [
+    "xano:quick-start"
+  ],
+  "draft_updated_at": null,
+  "xanoscript": {
+    "value": "// Exchanges magic token for auth token. Logs in user with the one-time link.\nquery \"reset/magic-link-login\" verb=POST {\n  api_group = \"Authentication\"\n\n  input {\n    text magic_token? filters=trim\n    text email? filters=trim\n  }\n\n  stack {\n    // Check to make sure the magic token exists\n    precondition ($input.magic_token != null) {\n      error = \"magic_token is required but was not provided.\"\n    }\n  \n    // Check to make sure the email exists\n    precondition ($input.email != null) {\n      error = \"email is required but not provided\"\n    }\n  \n    // Get the user record with the email from the URL\n    db.get user {\n      field_name = \"email\"\n      field_value = $input.email\n      output = [\n        \"id\"\n        \"created_at\"\n        \"name\"\n        \"email\"\n        \"account_id\"\n        \"role\"\n        \"password_reset.token\"\n        \"password_reset.expiration\"\n        \"password_reset.used\"\n      ]\n    } as $user\n  \n    // Validate the UUID matches the hashed value\n    security.check_password {\n      text_password = $input.magic_token\n      hash_password = $user.password_reset.token\n    } as $verify_token\n  \n    // Verify the UUID validation is true\n    precondition ($verify_token) {\n      error_type = \"unauthorized\"\n      error = \"The token did not match\"\n    }\n  \n    // Check that the password reset token has not expired\n    precondition ($user.password_reset.expiration > now) {\n      error = \"Magic token has expired. Please request another one.\"\n    }\n  \n    // Check to make sure the password reset has not been used\n    precondition ($user.password_reset.used == false) {\n      error = \"This magic link has already been used. Please request another one.\"\n    }\n  \n    // Create an authentication token\n    security.create_auth_token {\n      table = \"user\"\n      extras = \"\"\n      expiration = 86400\n      id = $user.id\n    } as $auth_token\n  \n    // Update the user record that the password reset token has been used\n    db.edit user {\n      field_name = \"id\"\n      field_value = $user.id\n      enforce_hidden_fields = false\n      data = {\n        password_reset: {\n        token     : $user.password_reset.token\n        expiration: $user.password_reset.expiration\n        used      : true\n      }\n      }\n    } as $user1\n  \n    // Create an event log for password reset login\n    function.run \"Getting Started Template/create_event_log\" {\n      input = {\n        user_id   : $user.id\n        account_id: $user.account_id\n        action    : \"login_for_password_reset\"\n        metadata  : $user1\n      }\n    } as $event_log\n  }\n\n  response = {authToken: $auth_token, user_id: $user1.id}\n  tags = [\"xano:quick-start\"]\n}",
+    "status": "ok"
+  }
+}

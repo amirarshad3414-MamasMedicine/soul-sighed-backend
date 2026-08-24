@@ -1,0 +1,15 @@
+# secrets
+.env
+*.pat
+.xano-token
+
+# captured traffic may contain real user data (names, emails, children's DOBs)
+xano-export/responses/
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/

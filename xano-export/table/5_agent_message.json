@@ -1,0 +1,178 @@
+{
+  "id": 5,
+  "created_at": "2026-03-18 11:48:21+0000",
+  "updated_at": "2026-04-22 06:57:51+0000",
+  "name": "agent_message",
+  "description": "Stores individual messages within conversation threads.",
+  "docs": "",
+  "guid": "KIfCMtLPUQWpBkjwFdHtgCVZnz8",
+  "auth": false,
+  "tag": [
+    "xano:quick-start"
+  ],
+  "autocomplete": [],
+  "schema": [
+    {
+      "name": "id",
+      "type": "int",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": true,
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp",
+      "description": "",
+      "nullable": false,
+      "default": "now",
+      "required": false,
+      "access": "private",
+      "style": "single"
+    },
+    {
+      "name": "conversation",
+      "type": "int",
+      "description": "Reference to the parent conversation thread.",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single",
+      "tableref_id": 4
+    },
+    {
+      "name": "role",
+      "type": "enum",
+      "description": "The role of the message sender (e.g., system, user, assistant, tool).",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "values": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ],
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "content",
+      "type": "json",
+      "description": "The content of the message, compatible with AI SDK.",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    }
+  ],
+  "index": [
+    {
+      "type": "primary",
+      "fields": [
+        {
+          "name": "id"
+        }
+      ],
+      "id": "1339908e"
+    },
+    {
+      "type": "btree",
+      "fields": [
+        {
+          "name": "created_at",
+          "op": "desc"
+        }
+      ],
+      "id": "411a6c94"
+    }
+  ],
+  "xanoscript": {
+    "value": "// Stores individual messages within conversation threads.\ntable agent_message {\n  auth = false\n\n  schema {\n    int id\n    timestamp created_at?=now {\n      visibility = \"private\"\n    }\n  \n    // Reference to the parent conversation thread.\n    int conversation? {\n      table = \"agent_conversation\"\n    }\n  \n    // The role of the message sender (e.g., system, user, assistant, tool).\n    enum role? {\n      values = [\"system\", \"user\", \"assistant\", \"tool\"]\n    }\n  \n    // The content of the message, compatible with AI SDK.\n    json content?\n  }\n\n  index = [\n    {type: \"primary\", field: [{name: \"id\"}]}\n    {type: \"btree\", field: [{name: \"created_at\", op: \"desc\"}]}\n  ]\n\n  tags = [\"xano:quick-start\"]\n}",
+    "status": "ok"
+  },
+  "_schema": [
+    {
+      "name": "id",
+      "type": "int",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": true,
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp",
+      "description": "",
+      "nullable": false,
+      "default": "now",
+      "required": false,
+      "access": "private",
+      "style": "single"
+    },
+    {
+      "name": "conversation",
+      "type": "int",
+      "description": "Reference to the parent conversation thread.",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single",
+      "tableref_id": 4
+    },
+    {
+      "name": "role",
+      "type": "enum",
+      "description": "The role of the message sender (e.g., system, user, assistant, tool).",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "values": [
+        "system",
+        "user",
+        "assistant",
+        "tool"
+      ],
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "content",
+      "type": "json",
+      "description": "The content of the message, compatible with AI SDK.",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    }
+  ],
+  "_index": [
+    {
+      "type": "primary",
+      "fields": [
+        {
+          "name": "id"
+        }
+      ],
+      "id": "1339908e"
+    },
+    {
+      "type": "btree",
+      "fields": [
+        {
+          "name": "created_at",
+          "op": "desc"
+        }
+      ],
+      "id": "411a6c94"
+    }
+  ]
+}

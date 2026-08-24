@@ -1,0 +1,12 @@
+{
+  "id": 2,
+  "created_at": "2026-08-21 11:17:34+0000",
+  "updated_at": "2026-08-24 06:10:10+0000",
+  "name": "Read/write access to the Soul Sighted Xano backend \u2014 users, children, insights, and pending emails. Used by Claude Code during frontend development",
+  "description": "Read/write access to the Soul Sighted Xano backend \u2014 users, children, insights, and pending emails. Used by Claude Code during frontend development",
+  "tag": [],
+  "xanoscript": {
+    "value": "// Read/write access to the Soul Sighted Xano backend \u2014 users, children, insights, and pending emails. Used by Claude Code during frontend development\nmcp_server \"Read/write access to the Soul Sighted Xano backend \u2014 users, children, insights, and pending emails. Used by Claude Code during frontend development\" {\n  canonical = \"LyjD2s3s\"\n  tools = [\n    {name: \"list_children\"}\n    {name: \"list_insights\"}\n    {name: \"list_pending_emails\"}\n    {name: \"onboarding_stats\"}\n    {name: \"search_xano_docs\"}\n  ]\n\n  history = 0\n}",
+    "status": "ok"
+  }
+}

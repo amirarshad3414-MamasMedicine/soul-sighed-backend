@@ -1,0 +1,194 @@
+{
+  "id": 8,
+  "created_at": "2026-03-18 11:48:21+0000",
+  "updated_at": "2026-03-18 11:48:21+0000",
+  "name": "Journey",
+  "description": "",
+  "docs": "",
+  "guid": "Yh7aDE1Pi6iWlA3_aA_8EikK5YE",
+  "auth": false,
+  "tag": [],
+  "autocomplete": [],
+  "schema": [
+    {
+      "name": "id",
+      "type": "uuid",
+      "description": "",
+      "nullable": false,
+      "required": true,
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp",
+      "description": "",
+      "nullable": false,
+      "default": "now",
+      "required": false,
+      "access": "private",
+      "style": "single"
+    },
+    {
+      "name": "title",
+      "type": "text",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "desc",
+      "type": "text",
+      "description": "The description of the Journey type",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "number",
+      "type": "int",
+      "description": "The number represents at place in the Order of journey ",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "image",
+      "type": "image",
+      "description": "Stores the Image of the Journey type",
+      "nullable": true,
+      "required": false,
+      "access": "public",
+      "style": "single"
+    }
+  ],
+  "index": [
+    {
+      "type": "primary",
+      "fields": [
+        {
+          "name": "id"
+        }
+      ],
+      "id": "1339908e"
+    },
+    {
+      "type": "btree",
+      "fields": [
+        {
+          "name": "created_at",
+          "op": "desc"
+        }
+      ],
+      "id": "411a6c94"
+    }
+  ],
+  "xanoscript": {
+    "value": "table Journey {\n  auth = false\n\n  schema {\n    uuid id\n    timestamp created_at?=now {\n      visibility = \"private\"\n    }\n  \n    text title? filters=trim\n  \n    // The description of the Journey type\n    text desc? filters=trim\n  \n    // The number represents at place in the Order of journey \n    int number?\n  \n    // Stores the Image of the Journey type\n    image? image?\n  }\n\n  index = [\n    {type: \"primary\", field: [{name: \"id\"}]}\n    {type: \"btree\", field: [{name: \"created_at\", op: \"desc\"}]}\n  ]\n}",
+    "status": "ok"
+  },
+  "_schema": [
+    {
+      "name": "id",
+      "type": "uuid",
+      "description": "",
+      "nullable": false,
+      "required": true,
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp",
+      "description": "",
+      "nullable": false,
+      "default": "now",
+      "required": false,
+      "access": "private",
+      "style": "single"
+    },
+    {
+      "name": "title",
+      "type": "text",
+      "description": "",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "desc",
+      "type": "text",
+      "description": "The description of the Journey type",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "number",
+      "type": "int",
+      "description": "The number represents at place in the Order of journey ",
+      "nullable": false,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "image",
+      "type": "image",
+      "description": "Stores the Image of the Journey type",
+      "nullable": true,
+      "required": false,
+      "access": "public",
+      "style": "single"
+    }
+  ],
+  "_index": [
+    {
+      "type": "primary",
+      "fields": [
+        {
+          "name": "id"
+        }
+      ],
+      "id": "1339908e"
+    },
+    {
+      "type": "btree",
+      "fields": [
+        {
+          "name": "created_at",
+          "op": "desc"
+        }
+      ],
+      "id": "411a6c94"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": 2,
+  "created_at": "2026-08-21 12:30:59+0000",
+  "updated_at": "2026-08-21 12:30:59+0000",
+  "name": "list_children",
+  "description": "Lists children records so the coding agent can see real data shapes.",
+  "docs": "",
+  "instructions": "Returns rows from the `children` table \u2014 the child or parent figures a user has added during onboarding. Each row has id (uuid), user_01_id, user_id, name, date_of_birth, time_of_birth, lat, lon, pronoun, default_child and relationship_focus ('child' or 'parent'). Use this to inspect real record shapes before writing frontend code against them.",
+  "guid": "QBYVFcN0YEmcE12z86DUbVrmHZY",
+  "branch": "v1",
+  "input": [],
+  "tag": [],
+  "draft_updated_at": null,
+  "xanoscript": {
+    "value": "// Lists children records so the coding agent can see real data shapes.\ntool list_children {\n  instructions = \"Returns rows from the `children` table \u2014 the child or parent figures a user has added during onboarding. Each row has id (uuid), user_01_id, user_id, name, date_of_birth, time_of_birth, lat, lon, pronoun, default_child and relationship_focus ('child' or 'parent'). Use this to inspect real record shapes before writing frontend code against them.\"\n\n  input {\n  }\n\n  stack {\n    db.query children {\n      sort = {children.created_at: \"desc\"}\n      return = {type: \"list\"}\n    } as $rows\n  }\n\n  response = $rows\n}",
+    "status": "ok"
+  }
+}

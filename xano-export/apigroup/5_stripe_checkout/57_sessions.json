@@ -1,0 +1,87 @@
+{
+  "id": 57,
+  "created_at": "2026-03-20 23:02:14+0000",
+  "updated_at": "2026-03-20 23:02:14+0000",
+  "name": "sessions",
+  "description": "Returns a list of Checkout Sessions.",
+  "docs": "",
+  "guid": "cTX0Nr3LQoaUlQPJiPX-sPEU-1s",
+  "auth": false,
+  "cache": {
+    "active": false,
+    "ttl": 3600,
+    "input": true,
+    "auth": true,
+    "datasource": true,
+    "ip": false,
+    "headers": [],
+    "env": []
+  },
+  "verb": "GET",
+  "input": [
+    {
+      "name": "payment_intent",
+      "type": "bool",
+      "description": "Only return the Checkout Session for the PaymentIntent specified",
+      "nullable": true,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "starting_after",
+      "type": "text",
+      "description": "A cursor for use in pagination. starting_after is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, ending with obj_foo, your subsequent call can include starting_after=obj_foo in order to fetch the next page of the list.",
+      "nullable": true,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "limit",
+      "type": "int",
+      "description": "A limit on the number of objects to be returned, between 1 and 100.",
+      "nullable": false,
+      "default": "10",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    },
+    {
+      "name": "ending_before",
+      "type": "text",
+      "description": "A cursor for use in pagination. ending_before is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, starting with obj_bar, your subsequent call can include ending_before=obj_bar in order to fetch the previous page of the list.",
+      "nullable": true,
+      "default": "",
+      "required": false,
+      "format": "",
+      "access": "public",
+      "style": "single",
+      "validators": {
+        "trim": true
+      }
+    },
+    {
+      "name": "subscription",
+      "type": "bool",
+      "description": "Only return the Checkout Session for the subscription specified.",
+      "nullable": true,
+      "default": "",
+      "required": false,
+      "access": "public",
+      "style": "single"
+    }
+  ],
+  "tag": [],
+  "draft_updated_at": null,
+  "xanoscript": {
+    "value": "// Returns a list of Checkout Sessions.\nquery sessions verb=GET {\n  api_group = \"stripe_checkout\"\n\n  input {\n    // Only return the Checkout Session for the PaymentIntent specified\n    bool? payment_intent?\n  \n    // A cursor for use in pagination. starting_after is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, ending with obj_foo, your subsequent call can include starting_after=obj_foo in order to fetch the next page of the list.\n    text? starting_after? filters=trim\n  \n    // A limit on the number of objects to be returned, between 1 and 100.\n    int limit?=10\n  \n    // A cursor for use in pagination. ending_before is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, starting with obj_bar, your subsequent call can include ending_before=obj_bar in order to fetch the previous page of the list.\n    text? ending_before? filters=trim\n  \n    // Only return the Checkout Session for the subscription specified.\n    bool? subscription?\n  }\n\n  stack {\n    var $params {\n      value = {}\n        |set:\"payment_intent\":$input.payment_intent\n        |set:\"limit\":$input.limit\n        |set:\"ending_before\":$input.ending_before\n        |set:\"starting_after\":$input.starting_after\n        |set:\"subscription\":$input.subscription\n    }\n  \n    api.request {\n      url = \"https://api.stripe.com/v1/checkout/sessions\"\n      method = \"GET\"\n      params = $params\n      headers = []\n        |push:(\"Authorization: Basic %s\"\n          |sprintf:($env.stripe_api_secret|base64_encode)\n        )\n    } as $stripe_sessions\n  \n    precondition (($stripe_sessions.response.result|get:\"error\") == null) {\n      error = $stripe_sessions.response.result.error.message\n    }\n  }\n\n  response = $stripe_sessions.response.result\n}",
+    "status": "ok"
+  }
+}

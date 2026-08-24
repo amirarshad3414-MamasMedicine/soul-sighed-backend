@@ -1,0 +1,28 @@
+{
+  "id": 44,
+  "created_at": "2026-03-18 11:48:23+0000",
+  "updated_at": "2026-03-20 23:34:24+0000",
+  "name": "get_children",
+  "description": "Fetches children for the authenticated user using an external validation API.",
+  "docs": "",
+  "guid": "66O6Q0yxLOqBvQXjGvv2u2I20EU",
+  "auth": 1,
+  "cache": {
+    "active": false,
+    "ttl": 3600,
+    "input": true,
+    "auth": true,
+    "datasource": true,
+    "ip": false,
+    "headers": [],
+    "env": []
+  },
+  "verb": "GET",
+  "input": [],
+  "tag": [],
+  "draft_updated_at": null,
+  "xanoscript": {
+    "value": "// Fetches children for the authenticated user using an external validation API.\nquery get_children verb=GET {\n  api_group = \"scripters\"\n  auth = \"user\"\n\n  input {\n  }\n\n  stack {\n    db.get user {\n      field_name = \"id\"\n      field_value = $auth.id\n      output = [\n        \"id\"\n        \"created_at\"\n        \"name\"\n        \"email\"\n        \"account_id\"\n        \"role\"\n        \"password_reset\"\n      ]\n    } as $user\n  \n    var $user_id {\n      value = $user.id\n    }\n  \n    // Query the children table using the user_id\n    db.query children {\n      where = $db.children.user_id == $user_id\n      return = {type: \"list\"}\n    } as $children\n  \n    db.query Insights {\n      where = $db.Insights.real_user_id == $user_id\n      return = {type: \"list\"}\n    } as $insights\n  \n    db.query Purchases {\n      where = $db.Purchases.user_id == $user_id\n      return = {type: \"list\"}\n    } as $purchases\n  }\n\n  response = {\n    children : $children\n    insights : $insights\n    purchases: $purchases\n  }\n}",
+    "status": "ok"
+  }
+}
