@@ -25,13 +25,23 @@ ERROR_TYPES: dict[str, tuple[int, str]] = {
     "unauthorized":    (status.HTTP_401_UNAUTHORIZED,          "ERROR_CODE_UNAUTHORIZED"),
     "badrequest":      (status.HTTP_400_BAD_REQUEST,           "ERROR_CODE_BAD_REQUEST"),
     "inputerror":      (status.HTTP_400_BAD_REQUEST,           "ERROR_CODE_INPUT_ERROR"),
+    # A precondition with NO error_type. Xano throws a fatal error, and the
+    # captured response is HTTP 500 with this code — measured against live Xano
+    # for auth/login's "Invalid Credentials.", 2026-08-25 (parity-question #1).
+    "fatal":           (status.HTTP_500_INTERNAL_SERVER_ERROR, "ERROR_FATAL"),
 }
 
 
 class XanoError(HTTPException):
-    """The equivalent of a XanoScript `precondition` failing."""
+    """The equivalent of a XanoScript `precondition` failing.
 
-    def __init__(self, error_type: str, message: str, payload: object = None):
+    `payload` defaults to "" — not None — because Xano's error envelope carries
+    an empty string there, confirmed across every captured error body (auth/login,
+    signup-duplicate, verify_otp) on 2026-08-25. A precondition that sets a
+    payload passes it through.
+    """
+
+    def __init__(self, error_type: str, message: str, payload: object = ""):
         if error_type not in ERROR_TYPES:
             raise ValueError(f"unknown Xano error_type: {error_type!r}")
         code_status, code = ERROR_TYPES[error_type]
@@ -56,7 +66,7 @@ def register_error_handlers(app: FastAPI) -> None:
                     "ERROR_CODE_STANDARD")
         return JSONResponse(
             status_code=exc.status_code,
-            content={"code": code, "message": str(exc.detail), "payload": None},
+            content={"code": code, "message": str(exc.detail), "payload": ""},
             headers=getattr(exc, "headers", None),
         )
 

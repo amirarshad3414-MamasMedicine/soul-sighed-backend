@@ -21,6 +21,16 @@ async def test_returns_exactly_xanos_column_projection(client, user):
     assert "password" not in body
 
 
+async def test_password_reset_is_the_three_key_object_never_null(client, user):
+    """Xano's live auth/me returns password_reset as
+    {token:"", expiration:null, used:false} — never null, never {} (measured
+    2026-08-25). A frontend reading password_reset.used must not hit null.used.
+    """
+    body = (await client.get("/auth/me", headers=auth_headers(user))).json()
+    assert body["password_reset"] == {"token": "", "expiration": None,
+                                      "used": False}
+
+
 async def test_created_at_is_epoch_millis(client, user):
     body = (await client.get("/auth/me", headers=auth_headers(user))).json()
     assert isinstance(body["created_at"], int)

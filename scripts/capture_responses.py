@@ -69,6 +69,12 @@ def build_plan(run: str) -> list[Call]:
     """The ~24 targeted calls of migration-plan 1.4, classified read/write.
 
     `run` scopes every test email so parallel/rerun captures never collide."""
+    # A place id that resolves to real geometry (Lahore), verified live. An
+    # invalid id makes Xano's add_children crash with a 500 ("Unable to locate
+    # var: ...geometry.location.lat") before the happy path is reached — a real
+    # Xano behaviour, but not what these happy pairs are meant to capture.
+    valid_place = "ChIJ2QeB5YMEGTkRYiR-zGy-OsI"
+
     # The name carries TEST_TAG so cleanup_test_data.py can positively identify
     # the row as ours before deleting — children rows have no email to key on.
     child_payload = {
@@ -76,16 +82,16 @@ def build_plan(run: str) -> list[Call]:
         "relationship_focus": "child",
         "dob": "2020-05-01",
         "place_of_birth": "Lahore, Pakistan",
-        "place_of_birth_id": "ChIJj8xkAyUEGTkRAmqmZma0feo",
+        "place_of_birth_id": valid_place,
         "pronoun": "she/her",
     }
     onboarding_payload = {
         "username": "Parity Parent",
         "childname": "Parity Child",
         "user_dob": "1990-01-01T00:00",
-        "user_birth_place_id": "ChIJj8xkAyUEGTkRAmqmZma0feo",
+        "user_birth_place_id": valid_place,
         "child_dob": "2020-05-01T00:00",
-        "child_birth_place_id": "ChIJj8xkAyUEGTkRAmqmZma0feo",
+        "child_birth_place_id": valid_place,
         "parentPronouns": "they/them",
         "childPronouns": "she/her",
     }
@@ -126,9 +132,10 @@ def build_plan(run: str) -> list[Call]:
              note="place_of_birth_id set → response should carry place_id"),
         Call("add_children", "happy:no-place", "POST", "/add_children",
              rw="write", auth=True,
-             body={**child_payload, "place_of_birth": None,
-                   "place_of_birth_id": None},
-             note="no place_of_birth_id → place_id must be absent (the graft)"),
+             body={**child_payload, "name": f"{TEST_TAG} Child NoPlace",
+                   "place_of_birth": None, "place_of_birth_id": None},
+             note="distinct name so it is not a duplicate of with-place; no "
+                  "place_of_birth_id → place_id must be absent (the graft)"),
         Call("add_children", "error:duplicate", "POST", "/add_children",
              rw="write", auth=True, body=child_payload, expect_status=400,
              note="declares 'Record already exists'; body shape unknown "
@@ -162,7 +169,12 @@ def build_plan(run: str) -> list[Call]:
                   "a different error path from a precondition, and its body "
                   "shape is in no XanoScript. The port answers 400 here."),
         Call("places_details", "happy", "GET", "/places_details", rw="read",
-             query={"place_id": "ChIJj8xkAyUEGTkRAmqmZma0feo"}),
+             query={"place_id": "ChIJ2QeB5YMEGTkRYiR-zGy-OsI"}),
+        Call("places_details", "error:bad-place", "GET", "/places_details",
+             rw="read", query={"place_id": "ChIJj8xkAyUEGTkRAmqmZma0feo"},
+             note="a stale/invalid id. Xano returned 200 with "
+                  "{payload, statement:'Throw Error'} rather than an error "
+                  "status — captured deliberately so the port can match."),
 
         # -- email queue -----------------------------------------------------
         Call("scheduled_email", "happy", "POST", "/scheduled_email", rw="write",
@@ -223,7 +235,8 @@ def http(method: str, url: str, body=None, token=None):
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=120) as r:
+        with urllib.request.urlopen(req, timeout=310) as r:  # submit_onboarding
+            # runs the insight retry loop inline and can take up to ~300s.
             raw, status = r.read(), r.status
     except urllib.error.HTTPError as e:
         raw, status = e.read(), e.code

@@ -62,7 +62,11 @@ async def test_autocomplete_caps_at_five(client, google):
 async def test_autocomplete_rejects_short_queries(client, google):
     r = await client.get("/places_autocomplete?q=la")
     assert r.status_code == 400
-    assert r.json()["message"] == "Search query must be at least 3 characters long."
+    # The input-filter envelope, measured against live Xano 2026-08-25:
+    assert r.json() == {
+        "code": "ERROR_CODE_INPUT_ERROR",
+        "message": "Input does not meet minimum length requirement of 3 characters",
+        "payload": {"param": "q"}}
 
 
 async def test_autocomplete_trims_before_measuring(client, google):

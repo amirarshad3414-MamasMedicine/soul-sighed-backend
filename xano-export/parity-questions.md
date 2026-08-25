@@ -6,14 +6,28 @@ production, which is **gated on Amir's approval** (migration plan, Phase 8).
 
 Each entry names the assumption currently coded, so a wrong guess is one edit.
 
-| # | Question | Currently assumed | Where |
+| # | Question | Answer | How settled |
 |---|---|---|---|
-| 1 | What HTTP status does a `precondition` with **no** `error_type` return? Used by `auth/login` for "Invalid Credentials." | 401 | `app/routers/auth.py` |
-| 2 | What is the exact error body? `{code, message, payload}` is Xano's documented convention but unconfirmed. `message` is certain — the frontend reads it. | `{"code","message","payload"}` | `app/core/errors.py` |
-| 3 | Does `error_type = "unauthorized"` return 401 (vs `accessdenied` → 403)? Both exist as distinct types, so the split is inferred from HTTP convention. | 401 | `app/core/errors.py` |
-| 4 | Does Xano return `{"predictions": []}` or an error when Google returns `ZERO_RESULTS` for autocomplete? The stack only special-cases `REQUEST_DENIED`. | empty list | `app/routers/places.py` |
-| 5 | Key order in JSON objects. Irrelevant to correctness; the diff must compare order-independently. | order-independent | `scripts/diff_responses.py` |
-| 6 | What does an **input-filter** rejection return, as opposed to a `precondition`? `places_autocomplete` declares `q filters=trim\|min:3`, so a two-character query is refused before the stack runs, by a different mechanism and possibly a different body. | 400 with the same `{code,message,payload}` envelope | `app/routers/places.py`; captured as `places_autocomplete [error:too-short]` |
+| 1 | What HTTP status does a `precondition` with **no** `error_type` return? Used by `auth/login` for "Invalid Credentials." | **500**, `{"code":"ERROR_FATAL","message":...,"payload":""}` — a bare precondition throws a fatal error, it is not a 4xx | **MEASURED** run1, 2026-08-25 (`004_auth_login__error_bad_credentials`) |
+| 2 | What is the exact error body? `{code, message, payload}`? | **Confirmed** `{code, message, payload}`, and **payload is `""`** for a precondition, not null | MEASURED run1 (every error pair) |
+| 3 | Does `error_type = "unauthorized"` return 401 (vs `accessdenied` → 403)? | signup-duplicate uses `accessdenied` → **403** confirmed; a bare `unauthorized` was not exercised (login uses no type → fatal) | MEASURED run1 (`002_auth_signup__error_duplicate`) |
+| 4 | Does Xano return `{"predictions": []}` or an error when Google returns `ZERO_RESULTS`? | **empty list** confirmed | MEASURED run1 (`018_places_autocomplete__zero_results`) |
+| 5 | Key order in JSON objects. | order-independent; the diff compares that way | by design |
+| 6 | What does an **input-filter** rejection return? `places_autocomplete` declares `q filters=trim\|min:3`. | 400 `{"code":"ERROR_CODE_INPUT_ERROR","message":"Input does not meet minimum length requirement of 3 characters","payload":{"param":"q"}}` — payload is an **object** here, not "" | **MEASURED** run1 (`019_places_autocomplete__error_too_short`) |
+
+## New findings from run1 (2026-08-25) — need triage
+
+- **`add_children` with an unresolvable `place_of_birth_id` → HTTP 500.** Xano
+  crashes reading `google_response.response.result.result.geometry.location.lat`
+  when Google returns no geometry (an invalid/NOT_FOUND place id). This
+  **contradicts** the plan's Phase 6 assumption that a failed lookup "leaves
+  lat/lon null and the record still saves" — that is the REQUEST_DENIED path; an
+  invalid id is different and fatal. The port currently saves gracefully. Decide:
+  reproduce the 500, or keep the graceful save as a deliberate fix.
+- **`places_details` with a bad place id → HTTP 200**, body
+  `{"payload":"Failed to fetch place details: NOT_FOUND ...","statement":"Throw Error"}`.
+  Xano's `throw` inside the try/catch returns 200 with the error as the body. The
+  port raises 500. Decide whether to reproduce the 200-with-error-body.
 
 ## Settled without needing a live call
 

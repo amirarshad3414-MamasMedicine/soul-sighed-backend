@@ -90,8 +90,10 @@ async def test_login_rejects_a_wrong_password(client, session):
     await signup(client)
     r = await client.post("/auth/login",
                           json={"email": "new@example.test", "password": "wrong"})
-    assert r.status_code == 401
-    assert r.json()["message"] == "Invalid Credentials."
+    assert r.status_code == 500  # Xano: bare precondition -> ERROR_FATAL (measured)
+    # The whole envelope, measured against live Xano 2026-08-25:
+    assert r.json() == {"code": "ERROR_FATAL",
+                        "message": "Invalid Credentials.", "payload": ""}
 
 
 async def test_unknown_account_is_indistinguishable_from_a_wrong_password(client, session):
@@ -111,13 +113,13 @@ async def test_a_passwordless_account_cannot_log_in_with_a_password(client, sess
                       json={"name": "No Password", "email": "np@example.test"})
     r = await client.post("/auth/login",
                           json={"email": "np@example.test", "password": "anything"})
-    assert r.status_code == 401
+    assert r.status_code == 500  # Xano: bare precondition -> ERROR_FATAL (measured)
 
 
 async def test_login_with_no_body_fields_is_invalid_credentials_not_a_crash(client):
     """Both inputs are optional in Xano, so this must not be an input error."""
     r = await client.post("/auth/login", json={})
-    assert r.status_code == 401
+    assert r.status_code == 500  # Xano: bare precondition -> ERROR_FATAL (measured)
     assert r.json()["message"] == "Invalid Credentials."
 
 

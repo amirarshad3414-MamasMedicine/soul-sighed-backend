@@ -59,16 +59,20 @@ async def auth_login(
     message — a missing account and a wrong password are deliberately
     indistinguishable, so account existence cannot be probed. Kept that way.
 
-    See xano-export/parity-questions.md #1: Xano's preconditions here carry no
-    error_type, so the exact status is unconfirmed. 401 is assumed.
+    Status is now MEASURED, not assumed (parity-question #1, settled 2026-08-25):
+    the captured live response is HTTP 500 `{"code":"ERROR_FATAL","message":
+    "Invalid Credentials.","payload":""}`, because a Xano precondition with no
+    error_type throws a fatal error rather than returning a 4xx. Reproduced under
+    the auth-parity rule — a normal login failure answering 500 is a Xano defect,
+    flagged for the post-cutover hardening pass, not fixed here.
     """
     user = (await db.execute(
         select(User).where(User.email == body.email))).scalar_one_or_none()
 
     if user is None or not user.password:
-        raise XanoError("unauthorized", "Invalid Credentials.")
+        raise XanoError("fatal", "Invalid Credentials.")
     if not body.password or not verify_password(body.password, user.password):
-        raise XanoError("unauthorized", "Invalid Credentials.")
+        raise XanoError("fatal", "Invalid Credentials.")
 
     return TokenResponse(authToken=create_access_token(user.id))
 

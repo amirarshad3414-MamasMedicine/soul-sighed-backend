@@ -15,13 +15,17 @@ async def places_autocomplete(q: str = Query(...)) -> AutocompleteResponse:
     """Address suggestions for a partial query.
 
     Ported from .../49_places_autocomplete.xs. Xano applies `trim|min:3` to the
-    input and then asserts the length again in the stack; the second check is
-    what produces the user-facing message, so that is the one reproduced here.
+    input. Measured against live Xano 2026-08-25 (parity-question #6): the input
+    FILTER rejects a short query before the stack runs — so the stack's own
+    length assertion is never reached, and the envelope is exactly this, not the
+    stack's wording. `payload` here is an object, not the "" a precondition gives.
     """
     query = q.strip()
     if len(query) < 3:
-        raise XanoError("inputerror",
-                        "Search query must be at least 3 characters long.")
+        raise XanoError(
+            "inputerror",
+            "Input does not meet minimum length requirement of 3 characters",
+            payload={"param": "q"})
 
     payload = await google_places.autocomplete(query)
 

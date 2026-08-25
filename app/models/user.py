@@ -29,7 +29,15 @@ class User(SQLModel, table=True):
     password: str | None = None  # access=internal
     account_id: int = Field(default=None, nullable=False, sa_column_kwargs={"server_default": text("0")})  # access=public
     role: str = Field(default=None, nullable=False, sa_column_kwargs={"server_default": text("''")})  # xano enum ['admin', 'member']; str because '' occurs; access=private
-    password_reset: dict = Field(default=None, sa_column=Column(JSONB, server_default=text("'{}'"), nullable=False))  # access=public
+    # Xano's live auth/me returns password_reset as {token:"", expiration:null,
+    # used:false}, never {} and never null (measured 2026-08-25). The three
+    # sub-fields are visibility=internal but still appear, masked to their zero
+    # values. Default to that exact shape so the port matches — a frontend
+    # reading password_reset.used must not hit null.used on new accounts.
+    password_reset: dict = Field(
+        default_factory=lambda: {"token": "", "expiration": None, "used": False},
+        sa_column=Column(JSONB, nullable=False, server_default=text(
+            "'{\"token\":\"\",\"expiration\":null,\"used\":false}'")))  # access=public
     otp: str = Field(default=None, nullable=False, sa_column_kwargs={"server_default": text("''")})  # access=public
     otp_expiry: datetime = Field(default=None, sa_column=Column(DateTime(timezone=True), server_default=text("'epoch'"), nullable=False))  # access=public
     relationship_focus: str = Field(default=None, nullable=False, sa_column_kwargs={"server_default": text("''")})  # xano enum ['parent', 'child']; str because '' occurs; access=public
