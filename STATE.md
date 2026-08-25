@@ -1,4 +1,4 @@
-# Where this stands — 2026-08-24
+# Where this stands — 2026-08-25
 
 FastAPI port of the Soul Sighted Xano backend. **Read this file first.**
 The plan lives in the frontend repo at
@@ -10,7 +10,7 @@ The plan lives in the frontend repo at
 cd ~/Documents/soul-sighted-backend
 docker compose up -d --wait        # Postgres 16 on port 5433 (5432 is taken by a native install)
 ./.venv/bin/alembic upgrade head
-./.venv/bin/pytest -q              # 105 tests, all passing
+./.venv/bin/pytest -q              # 138 tests, all passing
 ./.venv/bin/uvicorn app.main:app --reload
 ```
 
@@ -19,6 +19,29 @@ docker compose up -d --wait        # Postgres 16 on port 5433 (5432 is taken by 
 All **21** endpoints of the Xano `scripters` group are ported with tests.
 `xano-export/inventory.csv` is the tracker — one row per endpoint, with a triage
 column.
+
+The **Phase 8 parity tooling exists** as of 2026-08-25 and has sent no live
+traffic. Four files in `scripts/`, plus 33 tests on the diff logic itself:
+
+| Script | What it does |
+|---|---|
+| `parity_lib.py` | shared shape comparison + Appendix A as executable rules |
+| `capture_responses.py` | the 28 targeted calls of plan 1.4 against live Xano |
+| `diff_responses.py` | replays those pairs against the local app; shape diff |
+| `cleanup_test_data.py` | deletes the rows a capture run created |
+
+`python3 scripts/capture_responses.py --list` prints the call plan and its
+coverage and **sends nothing** — start there. Capture refuses to run without
+`--i-have-approval`, and its write calls need `--allow-writes` on top. The plan
+currently covers all 21 PORT endpoints, so the 8.3 coverage gate can pass.
+
+The diff sends no Xano traffic at all: it calls the local app in-process, so
+nothing needs to be running. It compares **shape, not values** — status, key
+sets, JSON type per key, null-vs-empty, error bodies, Appendix A formats —
+because Xano holds real data and FastAPI holds seed data (plan 8.2). Where the
+live response contradicts Appendix A, reality wins: that key is excused locally
+and both sides are reported, per key, so one drift cannot blind the rest of the
+body.
 
 Four are **deliberately not ported**, all Memberstack-era: `validate_user`,
 `sync_user`, `sync_purchase`, `dashboard_state`. The last cannot succeed today
@@ -47,22 +70,25 @@ all 505 rows. **The `User_01` table and its 33 rows stay. Amir's decision.**
 
 ## Next, in order
 
-1. **`git init` is done; there is no remote.** Add one when you want it.
-2. **Triage decisions — Amir's, and several change code.** See the table in the
+1. **Triage decisions — Amir's, and several change code.** See the table in the
    plan: the duplicate-children index, the 7 stuck insights, whether birth times
    should reach the calculation, `update_password`, Stripe signature checks.
-3. **Replace the email transport.** Password hashes are not exportable, so the
+2. **Replace the email transport.** Password hashes are not exportable, so the
    forced reset is confirmed, which makes this mandatory. Today reset mail sends
    from a personal Gmail with credentials inline — it will not survive ~200
    resets. `KLAVIYO_API_KEY` and the Gmail credentials both need rotating.
-4. **Parity comparison** — needs Amir's approval. Three scripts named in the
-   plan do not exist yet: `capture_responses.py`, `diff_responses.py`,
-   `cleanup_test_data.py`.
-5. Smaller: `profile_tables.py` + `xano-export/formats.md` (Appendix A was
+3. **Run the parity capture** — the tooling is ready, the approval is not.
+   Ask Amir, then `--i-have-approval --allow-writes`, then run the diff and fix
+   what it reports. Two calls stay manual because they reach Stripe:
+   `create_checkout_session` needs a Stripe **test** key, and `checkout` must be
+   captured by firing a test event (`stripe trigger
+   checkout.session.completed`), never by POSTing a handwritten body — that
+   would write a real Purchase.
+4. Smaller: `profile_tables.py` + `xano-export/formats.md` (Appendix A was
    derived by hand for two tables, not generated for all 13); webhook
    idempotency (the no-account branch of `checkout` does not dedupe); Sentry;
    load tests; deployment; the six hardcoded Xano URLs in the frontend.
-6. **Data migration plan** — still the real gate on cutover.
+5. **Data migration plan** — still the real gate on cutover.
 
 ## Known defects, reproduced on purpose
 
@@ -96,6 +122,10 @@ XANO_PAT=$(cat ~/.config/xano/pat) python3 scripts/dump_xano.py --out xano-expor
 
 Four derived, secret-free files stay tracked: `inventory.csv`, `formats.md`,
 `parity-questions.md`, `REDACTIONS.md`.
+
+`xano-export/responses/` is gitignored for a second reason: a capture run stores
+live response bodies, which carry mothers' emails and children's names and birth
+dates. Pairs land in `responses/pairs/`, cleanup manifests in `responses/runs/`.
 
 ## Environment
 

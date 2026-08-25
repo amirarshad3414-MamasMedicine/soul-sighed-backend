@@ -13,6 +13,7 @@ Each entry names the assumption currently coded, so a wrong guess is one edit.
 | 3 | Does `error_type = "unauthorized"` return 401 (vs `accessdenied` → 403)? Both exist as distinct types, so the split is inferred from HTTP convention. | 401 | `app/core/errors.py` |
 | 4 | Does Xano return `{"predictions": []}` or an error when Google returns `ZERO_RESULTS` for autocomplete? The stack only special-cases `REQUEST_DENIED`. | empty list | `app/routers/places.py` |
 | 5 | Key order in JSON objects. Irrelevant to correctness; the diff must compare order-independently. | order-independent | `scripts/diff_responses.py` |
+| 6 | What does an **input-filter** rejection return, as opposed to a `precondition`? `places_autocomplete` declares `q filters=trim\|min:3`, so a two-character query is refused before the stack runs, by a different mechanism and possibly a different body. | 400 with the same `{code,message,payload}` envelope | `app/routers/places.py`; captured as `places_autocomplete [error:too-short]` |
 
 ## Settled without needing a live call
 
