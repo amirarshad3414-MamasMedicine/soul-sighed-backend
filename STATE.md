@@ -73,10 +73,31 @@ all 505 rows. **The `User_01` table and its 33 rows stay. Amir's decision.**
 1. **Triage decisions — Amir's, and several change code.** See the table in the
    plan: the duplicate-children index, the 7 stuck insights, whether birth times
    should reach the calculation, `update_password`, Stripe signature checks.
-2. **Replace the email transport.** Password hashes are not exportable, so the
-   forced reset is confirmed, which makes this mandatory. Today reset mail sends
-   from a personal Gmail with credentials inline — it will not survive ~200
-   resets. `KLAVIYO_API_KEY` and the Gmail credentials both need rotating.
+2. **Fix how the OTP email is sent.** Password hashes are not exportable, so
+   the forced reset is confirmed, which makes this mandatory. Reset mail goes
+   out through a personal Gmail with credentials inline and will not survive
+   ~200 resets at once — Gmail's cap, and no SPF/DKIM alignment with the brand
+   domain, so it lands in spam, and under a forced reset spam means locked out.
+
+   **Scope, corrected 2026-08-25.** This used to read "replace the email
+   transport", which implied the `Email` queue and its cron. Those are dead
+   (see the map below). It is two routes: `forgot-password` (the OTP) and
+   `send-teaser`, both sending to customers through Gmail.
+
+   **Do not route the OTP through Klaviyo** without checking one thing first.
+   It looks attractive — Klaviyo already sends this product's customer mail on
+   a verified domain — but Klaviyo is a marketing platform, and a flow will not
+   deliver to a profile that has unsubscribed or been suppressed. That would
+   tie "can reset my password" to "accepts marketing", and at cutover every
+   password user needs a reset. Flow latency is the second objection: an OTP
+   with an expiry cannot wait behind smart-sending throttles the way
+   `Insight Ready` happily can. Klaviyo does offer transactional sending that
+   bypasses suppression, but it must be enabled and approved on the account —
+   **check whether it is before choosing this route.**
+
+   Default recommendation: a transactional provider (Resend/Postmark/SES) on a
+   verified soul-sighted.com domain, for the OTP and the teaser. That is what
+   `EMAIL_PROVIDER_API_KEY` and `EMAIL_FROM` in `.env` are for; they stay.
 3. **Run the parity capture** — the tooling is ready, the approval is not.
    Ask Amir, then `--i-have-approval --allow-writes`, then run the diff and fix
    what it reports. Two calls stay manual because they reach Stripe:
