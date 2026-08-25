@@ -146,6 +146,46 @@ def test_birth_times_are_dropped():
     assert built["person_1"]["birthday"].endswith("T00:00")
 
 
+def test_omitted_text_fields_are_sent_as_empty_strings_never_null():
+    """The provider type-checks, and null is not a string.
+
+    Caught by running a real onboarding end to end on 2026-08-25: the provider
+    answered `{"error": "Field 'rawUserMessage' must be a string", "status":
+    400}`, the retry loop burned all five attempts, and the insight was marked
+    `failed`. Anyone skipping the optional free-text question would have got no
+    reading at all.
+
+    Xano sends "" here, not null. Proven against 321 live insights_api_payload
+    rows: rawUserMessage is a string 295 times and "" 26 times, and every
+    tone_inputs value is a string or "" — neither is ever null.
+    """
+    built = insights.build_payload({}, is_child=False,
+                                   parent_coords=PARENT_COORDS,
+                                   child_coords=CHILD_COORDS)
+
+    assert built["rawUserMessage"] == ""
+    assert built["parentName"] == ""
+    assert built["childName"] == ""
+    assert built["tone_inputs"] == {"q1_climate": "", "q2_activation": "",
+                                    "q3_closeness": "", "q4_posture": ""}
+    for key, value in built["tone_inputs"].items():
+        assert isinstance(value, str), key
+
+
+def test_supplied_text_fields_are_passed_through_unchanged():
+    built = insights.build_payload(
+        {"username": "Ama", "childname": "Kofi", "raw_user_message": "hello",
+         "climate": "warm", "activation": "sometimes",
+         "closeness": "close", "posture": "open"},
+        is_child=False, parent_coords=PARENT_COORDS, child_coords=CHILD_COORDS)
+
+    assert built["rawUserMessage"] == "hello"
+    assert built["parentName"] == "Ama"
+    assert built["childName"] == "Kofi"
+    assert built["tone_inputs"]["q1_climate"] == "warm"
+    assert built["tone_inputs"]["q4_posture"] == "open"
+
+
 # --- the endpoint ------------------------------------------------------------
 
 async def test_a_successful_generation(client, session, user, externals):

@@ -26,6 +26,24 @@ def _format_birthday(value: datetime | None) -> str | None:
     return value.strftime(BIRTHDAY_FORMAT) if value else None
 
 
+def _text(value: Any) -> str:
+    """Coerce an absent optional text field to "" rather than None.
+
+    Xano's `text foo?` inputs arrive as "" when the caller omits them, never as
+    null, and the payload is passed straight through to the provider. Proven
+    against 321 live `insights_api_payload` rows: `rawUserMessage` is a string
+    295 times and "" 26 times, and every tone_inputs value is str or "" — no
+    column is ever null.
+
+    This is not cosmetic. The provider validates types and answers
+    `{"error": "Field 'rawUserMessage' must be a string", "status": 400}` to a
+    null, which the retry loop then burns all five attempts on before marking
+    the insight `failed`. Sending None here means no reading is ever generated
+    for anyone who skips the free-text question.
+    """
+    return value if isinstance(value, str) else ""
+
+
 def build_payload(payload: dict[str, Any], *, is_child: bool,
                   parent_coords: dict[str, float], child_coords: dict[str, float]
                   ) -> dict[str, Any]:
@@ -49,11 +67,11 @@ def build_payload(payload: dict[str, Any], *, is_child: bool,
     second_birthday = _format_birthday(pick(payload.get("user_dob"), payload.get("child_dob")))
 
     return {
-        "parentName": pick(childname, username),
-        "childName": pick(username, childname),
+        "parentName": _text(pick(childname, username)),
+        "childName": _text(pick(username, childname)),
         "childPronouns": pick(parent_pronouns, child_pronouns),
         "parentPronouns": pick(child_pronouns, parent_pronouns),
-        "rawUserMessage": payload.get("raw_user_message"),
+        "rawUserMessage": _text(payload.get("raw_user_message")),
         "p1Lat": first.get("lat"),
         "p1Lon": first.get("lon"),
         "p2Lat": second.get("lat"),
@@ -65,10 +83,10 @@ def build_payload(payload: dict[str, Any], *, is_child: bool,
         "person_1": {"birthday": first_birthday, "lat": first.get("lat"), "lon": first.get("lon")},
         "person_2": {"birthday": second_birthday, "lat": second.get("lat"), "lon": second.get("lon")},
         "tone_inputs": {
-            "q1_climate": payload.get("climate"),
-            "q2_activation": payload.get("activation"),
-            "q3_closeness": payload.get("closeness"),
-            "q4_posture": payload.get("posture"),
+            "q1_climate": _text(payload.get("climate")),
+            "q2_activation": _text(payload.get("activation")),
+            "q3_closeness": _text(payload.get("closeness")),
+            "q4_posture": _text(payload.get("posture")),
         },
     }
 
