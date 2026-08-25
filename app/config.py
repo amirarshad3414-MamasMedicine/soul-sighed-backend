@@ -41,7 +41,17 @@ class Settings(BaseSettings):
     email_provider_api_key: str = ""
     email_from: str = ""
 
+    # Browser origins allowed to call this API. Xano sends CORS headers, so the
+    # frontend already makes these calls cross-origin; the port must too or the
+    # browser blocks them. Comma-separated in the env. Dev defaults cover the
+    # Next dev server (3000) and the analytics dashboard (3001).
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001"
+
     debug: bool = False
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
 
 @lru_cache

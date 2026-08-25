@@ -13,9 +13,13 @@ been confirmed against a live error response. Confirming that needs a real call
 to Xano, which is gated on approval (see the migration plan, Phase 8). `message`
 is certain — the frontend depends on it.
 """
+import logging
+
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+from app.config import settings
 
 ERROR_TYPES: dict[str, tuple[int, str]] = {
     "standard":        (status.HTTP_500_INTERNAL_SERVER_ERROR, "ERROR_CODE_STANDARD"),
@@ -71,8 +75,14 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(RequestValidationError)
-    async def _validation(_: Request, exc: RequestValidationError) -> JSONResponse:
+    async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
         """Xano rejects bad input with an input error, not FastAPI's 422."""
+        if settings.debug:
+            # The frontend surfaces only `message`, so the failing field is
+            # invisible in the browser. Log it while debugging locally.
+            logging.getLogger("uvicorn.error").warning(
+                "VALIDATION FAILED %s %s -> %s",
+                request.method, request.url.path, exc.errors())
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"code": "ERROR_CODE_INPUT_ERROR",

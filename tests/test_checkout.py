@@ -56,6 +56,52 @@ def stripe_event(**obj):
             "data": {"object": {"id": "cs_live_1", "metadata": {}, **obj}}}
 
 
+# --- the Stripe form encoding ------------------------------------------------
+# These test the wire encoding directly. The endpoint tests below replace
+# stripe_api.create_checkout_session wholesale, so they never see what actually
+# goes over the wire — which is how the bug these pin reached the browser.
+
+def test_line_items_use_stripes_bracket_notation():
+    """Stripe is form-encoded and wants line_items[0][price], not a repr.
+
+    Handed a list of dicts, httpx writes Python's repr — Stripe replied
+    {"error": {"message": "Invalid array"}} and every purchase failed. Found by
+    clicking Purchase in the dashboard against the local backend, 2026-08-25.
+    """
+    encoded = stripe_api.encode_form(
+        {"line_items": [{"price": "price_123", "quantity": 1}]})
+    assert encoded == {"line_items[0][price]": "price_123",
+                       "line_items[0][quantity]": "1"}
+    assert not any("{" in k or "{" in v for k, v in encoded.items())
+
+
+def test_booleans_are_lowercased_for_stripe():
+    """str(False) is "False"; Stripe wants "false"."""
+    assert stripe_api.encode_form({"metadata": {"send_email": False}}) == {
+        "metadata[send_email]": "false"}
+    assert stripe_api.encode_form({"metadata": {"send_email": True}}) == {
+        "metadata[send_email]": "true"}
+
+
+def test_none_is_dropped_not_sent_as_the_string_none():
+    assert stripe_api.encode_form({"client_reference_id": None}) == {}
+
+
+def test_multiple_line_items_are_indexed_separately():
+    encoded = stripe_api.encode_form({"line_items": [
+        {"price": "a", "quantity": 1}, {"price": "b", "quantity": 2}]})
+    assert encoded["line_items[0][price]"] == "a"
+    assert encoded["line_items[1][price]"] == "b"
+    assert encoded["line_items[1][quantity]"] == "2"
+
+
+def test_flat_values_pass_through_unchanged():
+    encoded = stripe_api.encode_form({
+        "success_url": "https://x/ok", "payment_method_types[0]": "card"})
+    assert encoded == {"success_url": "https://x/ok",
+                       "payment_method_types[0]": "card"}
+
+
 # --- create_checkout_session -------------------------------------------------
 
 async def test_returns_stripes_object_untouched(client, stripe):

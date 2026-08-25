@@ -146,6 +146,76 @@ def test_birth_times_are_dropped():
     assert built["person_1"]["birthday"].endswith("T00:00")
 
 
+@pytest.mark.parametrize("birth_time", ["", "   ", "14:30", "09:05"])
+def test_birth_time_inputs_never_fail_validation(birth_time):
+    """`<input type="time">` sends a bare "HH:MM", which is not a datetime.
+
+    Pydantic rejected it and 400d the whole request with "Input validation
+    failed", so nobody who filled in a birth time could get a reading. Xano
+    declares these `timestamp ...?`, accepts the value and never reads it —
+    every one of the 331 live payloads carries T00:00 because only the date
+    fields reach the calculation. Accept-and-discard is therefore the
+    parity-correct behaviour. Found running the real onboarding flow with a
+    birth time filled in, 2026-08-25.
+    """
+    from app.schemas.onboarding import SubmitOnboardingIn
+
+    body = SubmitOnboardingIn.model_validate({
+        "child_id": "c646c6d9-c437-4100-95eb-384cab558bb2",
+        "journey_id": str(JOURNEY_ID),
+        "user_relation": "parent",
+        "onboarding_payload": {
+            "username": "A", "childname": "B",
+            "user_dob": "1990-01-01", "user_time_of_birth": birth_time,
+            "child_dob": "2019-04-11", "child_time_of_birth": birth_time,
+        },
+    })
+    assert body.onboarding_payload.user_time_of_birth is None
+    assert body.onboarding_payload.child_time_of_birth is None
+    # the dates themselves must still parse
+    assert body.onboarding_payload.user_dob.year == 1990
+
+
+async def test_the_insight_sent_to_the_email_route_is_json_serialisable(
+        client, session, user, externals):
+    """The whole record goes over the wire, so it must survive json encoding.
+
+    Passing the SQLModel row straight to httpx raised `TypeError: Object of
+    type Insight is not JSON serializable` BEFORE the request was made. The
+    function discards its result to match Xano, so the failure was invisible
+    and the insight email silently never sent. Every other test in this file
+    replaces send_insight wholesale, which is why none of them caught it.
+    """
+    import json
+
+    from app.models import Insight
+    from app.services.notifications import _serialise_insight
+
+    insight = (await session.execute(select(Insight))).scalars().first()
+    body = _serialise_insight(insight)
+
+    json.dumps(body)                       # must not raise
+    assert isinstance(body["created_at"], int)     # Appendix A: epoch ms
+    assert "deep_text" in body and "summary_text" in body
+
+
+def test_serialising_passes_through_values_that_are_already_json():
+    from app.services.notifications import _serialise_insight
+
+    assert _serialise_insight(None) is None
+    assert _serialise_insight({"deep_text": "x"}) == {"deep_text": "x"}
+
+
+def test_a_blank_birth_date_is_absent_but_a_bad_one_is_still_rejected():
+    from pydantic import ValidationError
+
+    from app.schemas.onboarding import OnboardingPayload
+
+    assert OnboardingPayload.model_validate({"user_dob": ""}).user_dob is None
+    with pytest.raises(ValidationError):
+        OnboardingPayload.model_validate({"user_dob": "not-a-date"})
+
+
 def test_omitted_text_fields_are_sent_as_empty_strings_never_null():
     """The provider type-checks, and null is not a string.
 
