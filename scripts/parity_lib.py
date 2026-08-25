@@ -51,6 +51,61 @@ def slug(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]+", "_", name).strip("_")
 
 
+# --- request threading -------------------------------------------------------
+# A pair's stored request keeps placeholders, not resolved ids, so the SAME
+# request can be resolved against Xano's ids at capture time and against the
+# local port's ids at diff time. Without this, the diff would replay Xano's
+# child_id/email_id against a local DB that has never heard of them, and every
+# id-dependent read (get_child_by_id, deliver_email, submit_onboarding) would
+# false-fail on a 200-vs-404 status mismatch.
+
+REF_CHILD = "@created_child"
+REF_EMAIL = "@created_email"
+
+
+def resolve_refs(obj, ctx: dict):
+    """Replace @created_* placeholders in a query/body dict from ctx.
+
+    Returns (resolved_obj, missing) — missing is the set of placeholders whose
+    value is not in ctx yet, so the caller can skip a pair whose prerequisite
+    write did not run (e.g. a reads-only pass)."""
+    missing: set[str] = set()
+    mapping = {REF_CHILD: ctx.get("created_child"),
+               REF_EMAIL: ctx.get("created_email")}
+
+    def walk(v):
+        if isinstance(v, str) and v in mapping:
+            if mapping[v] is None:
+                missing.add(v)
+                return v
+            return mapping[v]
+        if isinstance(v, dict):
+            return {k: walk(x) for k, x in v.items()}
+        if isinstance(v, list):
+            return [walk(x) for x in v]
+        return v
+
+    return (walk(obj) if obj is not None else obj), missing
+
+
+def harvest_context(endpoint: str, case: str, resp_json, ctx: dict) -> None:
+    """Thread ids and the auth token forward from one response into ctx.
+
+    Identical rules for capture (Xano responses) and diff (local responses), so
+    the two runs stay in lock-step. `add_children` returns the row under `id`
+    (Xano has no `child_id` key — a known triage finding), so both are tried."""
+    if not isinstance(resp_json, dict):
+        return
+    if resp_json.get("authToken"):
+        ctx["token"] = resp_json["authToken"]
+    if endpoint == "add_children" and case.startswith("happy"):
+        child = resp_json.get("child_id") or resp_json.get("id")
+        if child:
+            ctx["created_child"] = child
+    if endpoint == "scheduled_email" and resp_json.get("id"):
+        ctx["created_email"] = resp_json["id"]
+
+
 def live_endpoints(path: Path = INVENTORY) -> list[str]:
     """Endpoint names the coverage gate runs over: group 4, triage PORT."""
     with open(path, newline="") as f:

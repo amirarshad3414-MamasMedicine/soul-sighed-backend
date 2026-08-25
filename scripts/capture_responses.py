@@ -32,7 +32,9 @@ import urllib.request
 from parity_lib import (
     RUNS_DIR,
     XANO_APP_BASE,
+    harvest_context,
     live_endpoints,
+    resolve_refs,
     save_pair,
 )
 
@@ -67,8 +69,10 @@ def build_plan(run: str) -> list[Call]:
     """The ~24 targeted calls of migration-plan 1.4, classified read/write.
 
     `run` scopes every test email so parallel/rerun captures never collide."""
+    # The name carries TEST_TAG so cleanup_test_data.py can positively identify
+    # the row as ours before deleting — children rows have no email to key on.
     child_payload = {
-        "name": "Parity Child",
+        "name": f"{TEST_TAG} Child",
         "relationship_focus": "child",
         "dob": "2020-05-01",
         "place_of_birth": "Lahore, Pakistan",
@@ -167,7 +171,10 @@ def build_plan(run: str) -> list[Call]:
                    "scheduled_time": "2020-01-01T00:00:00Z"},
              note="scheduled in the past so get_pending_emails returns it"),
         Call("get_pending_emails", "happy", "GET", "/get_pending_emails",
-             rw="read", query={"current_time": "2099-01-01T00:00:00Z"}),
+             rw="read", query={"current_time": 4070908800000},
+             note="epoch MS, as the Vercel cron sends it (Date.now()); the port "
+                  "types current_time as int, so ISO would 400. Far-future so "
+                  "the scheduled_email row above is due."),
         Call("deliver_email", "happy", "POST", "/deliver_email", rw="write",
              body={"email_id": "@created_email"},
              note="marks the scheduled_email row delivered"),
@@ -271,8 +278,7 @@ def run(args) -> int:
               file=sys.stderr)
         return 2
 
-    token = None
-    created_child = created_email = None
+    ctx: dict = {}          # threaded token + created ids, shared-helper format
     cleanup: list[dict] = []
     order = 0
     for call in plan:
@@ -287,20 +293,21 @@ def run(args) -> int:
         if args.reads_only and call.rw == "write":
             continue
 
-        body = json.loads(json.dumps(call.body)) if call.body else None
-        query = dict(call.query) if call.query else None
-        for holder in (body or {}), (query or {}):
-            for k, v in list(holder.items()):
-                if v == "@created_child":
-                    holder[k] = created_child
-                elif v == "@created_email":
-                    holder[k] = created_email
+        body, miss_b = resolve_refs(
+            json.loads(json.dumps(call.body)) if call.body else None, ctx)
+        query, miss_q = resolve_refs(dict(call.query) if call.query else None, ctx)
+        if miss_b or miss_q:
+            print(f"-- skip {call.endpoint} [{call.case}]: needs "
+                  f"{', '.join(sorted(miss_b | miss_q))}, not created yet "
+                  f"(is the prerequisite write in this run?)")
+            continue
+
         url = XANO_APP_BASE + call.path
         if query:
             url += "?" + urllib.parse.urlencode(query)
 
         status, resp_body, is_json = http(
-            call.method, url, body, token if call.auth else None)
+            call.method, url, body, ctx.get("token") if call.auth else None)
         order += 1
         pair = to_pair(call, order, status, resp_body, is_json)
         path = save_pair(pair)
@@ -309,21 +316,16 @@ def run(args) -> int:
         print(f"[{order:02d}] {call.method:<4} {call.path:<26} "
               f"{call.case:<22} → {status}{flag}  {path.name}")
 
-        # Thread created ids forward; note rows for cleanup.
-        if is_json and isinstance(resp_body, dict):
-            if call.endpoint in ("auth/signup", "auth/login") and \
-                    resp_body.get("authToken"):
-                token = resp_body["authToken"]
-            elif "authToken" in resp_body:
-                token = resp_body["authToken"]
-            if call.endpoint == "add_children" and call.case.startswith("happy"):
-                created_child = resp_body.get("child_id") or resp_body.get("id")
-                if created_child:
-                    cleanup.append({"table": "children", "id": created_child})
-            if call.endpoint == "scheduled_email":
-                created_email = resp_body.get("id")
-                if created_email:
-                    cleanup.append({"table": "Email", "id": created_email})
+        # Thread token + created ids forward (shared with the diff), and record
+        # the rows this run created so cleanup can delete exactly them.
+        before_child = ctx.get("created_child")
+        before_email = ctx.get("created_email")
+        if is_json:
+            harvest_context(call.endpoint, call.case, resp_body, ctx)
+        if ctx.get("created_child") not in (None, before_child):
+            cleanup.append({"table": "children", "id": ctx["created_child"]})
+        if ctx.get("created_email") not in (None, before_email):
+            cleanup.append({"table": "Email", "id": ctx["created_email"]})
         time.sleep(0.3)  # be gentle with the live API
 
     if cleanup:

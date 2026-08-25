@@ -24,3 +24,7 @@ venv/
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+
+# Table snapshots from scripts/backup_tables.py — real user data
+# (emails, children's names, birth dates, birthplaces). Never commit.
+backups/
