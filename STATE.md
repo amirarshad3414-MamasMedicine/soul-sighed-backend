@@ -81,6 +81,22 @@ something deliberately — that is not a regression.
 - Seven Insights rows are stuck at `processing` forever, because the row is
   written before a retry loop that can die with the request.
 
+## The dump is not in git
+
+`xano-export/` holds the XanoScript source of every Xano object and is the
+specification this port is written against — but it is **gitignored**, because
+it reproduces verbatim whatever the stacks contain, including the Klaviyo key
+hardcoded in `checkout`. A fresh clone will not have it.
+
+Regenerate it with a valid Metadata API token:
+
+```bash
+XANO_PAT=$(cat ~/.config/xano/pat) python3 scripts/dump_xano.py --out xano-export
+```
+
+Four derived, secret-free files stay tracked: `inventory.csv`, `formats.md`,
+`parity-questions.md`, `REDACTIONS.md`.
+
 ## Environment
 
 `.env` is gitignored and **eight keys are blank** — Stripe, Klaviyo, both Google

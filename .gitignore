@@ -3,6 +3,17 @@
 *.pat
 .xano-token
 
+# The raw Xano dump is NOT committed. It is regenerated with
+#   XANO_PAT=$(cat ~/.config/xano/pat) python3 scripts/dump_xano.py --out xano-export
+# and it reproduces verbatim whatever the Xano stacks contain — including the
+# Klaviyo key hardcoded in `checkout`. Keeping it out of git keeps credentials
+# out of history. The derived, secret-free files below stay tracked.
+xano-export/*
+!xano-export/inventory.csv
+!xano-export/formats.md
+!xano-export/parity-questions.md
+!xano-export/REDACTIONS.md
+
 # captured traffic may contain real user data (names, emails, children's DOBs)
 xano-export/responses/
 

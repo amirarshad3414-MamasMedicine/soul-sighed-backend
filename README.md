@@ -36,6 +36,9 @@ tests/            105 tests
 
 ## The dump is the specification
 
+**It is gitignored and not in a fresh clone.** Regenerate it with
+`XANO_PAT=$(cat ~/.config/xano/pat) python3 scripts/dump_xano.py --out xano-export`.
+
 `xano-export/` holds the XanoScript source of every endpoint, function and
 table. When behaviour is in question, read the `.xs` file — do not guess.
 
