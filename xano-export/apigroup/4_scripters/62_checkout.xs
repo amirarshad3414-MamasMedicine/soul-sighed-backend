@@ -115,7 +115,7 @@ query checkout verb=POST {
       }
     
       headers = []
-        |push:"Authorization: Klaviyo-API-Key pk_ab8d15bcfa308fb2790a4ea13c34b277e2"
+        |push:"Authorization: Klaviyo-API-Key pk_REDACTED_BEFORE_COMMIT__real_value_is_in_the_Xano_checkout_stack"
         |push:"Content-Type: application/json"
         |push:"revision: 2024-02-15"
     } as $klaviyo_response
