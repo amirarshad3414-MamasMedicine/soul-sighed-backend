@@ -33,6 +33,10 @@ ERROR_TYPES: dict[str, tuple[int, str]] = {
     # captured response is HTTP 500 with this code — measured against live Xano
     # for auth/login's "Invalid Credentials.", 2026-08-25 (parity-question #1).
     "fatal":           (status.HTTP_500_INTERNAL_SERVER_ERROR, "ERROR_FATAL"),
+    # NOT from Xano — a deliberate cutover signal. A migrated account still holds
+    # its peppered Xano hash, which the port cannot verify, so login redirects the
+    # user to password reset instead of failing. See auth.py auth_login.
+    "passwordreset":   (status.HTTP_409_CONFLICT,               "PASSWORD_RESET_REQUIRED"),
 }
 
 

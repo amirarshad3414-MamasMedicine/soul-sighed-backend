@@ -71,6 +71,16 @@ async def auth_login(
 
     if user is None or not user.password:
         raise XanoError("fatal", "Invalid Credentials.")
+
+    # CUTOVER (not Xano parity): accounts migrated from Xano keep their peppered
+    # Xano hash, which this backend cannot verify. Rather than a dead-end
+    # "Invalid Credentials.", signal the frontend to send the user to password
+    # reset — resetting overwrites the legacy hash with a verifiable Argon2 one.
+    # Any non-Argon2 hash is treated as legacy. Belongs in its own commit; it
+    # does reveal that an account is migrated (enumeration), accepted for cutover.
+    if not user.password.startswith("$argon2"):
+        raise XanoError("passwordreset", "Please reset your password to continue.")
+
     if not body.password or not verify_password(body.password, user.password):
         raise XanoError("fatal", "Invalid Credentials.")
 
