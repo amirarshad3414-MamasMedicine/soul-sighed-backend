@@ -1,6 +1,8 @@
 """Application settings, loaded from the environment (.env in development)."""
+import re
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,6 +10,37 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://app:app_password@localhost:5433/app_db"
+
+    # When NEONDB is present in the environment it wins: the app runs on Neon.
+    # Remove/rename it to fall back to the local docker Postgres above.
+    neondb: str = ""
+
+    @model_validator(mode="after")
+    def _prefer_neon(self):
+        """Convert a Neon connection string into the asyncpg form the engine needs:
+        swap the driver to +asyncpg, use the *direct* endpoint (strip `-pooler`, so
+        asyncpg's prepared statements are not broken by PgBouncer), and drop the
+        libpq-only `?sslmode=`/`?channel_binding=` params (TLS is applied via
+        db_connect_args instead). The credential never leaves the environment."""
+        if self.neondb:
+            m = re.match(r"postgresql(?:\+\w+)?://([^:]+):([^@]+)@([^/?]+)/([^?]+)", self.neondb)
+            if m:
+                user, pw, host, db = m.groups()
+                host = host.replace("-pooler", "")
+                object.__setattr__(self, "database_url",
+                                   f"postgresql+asyncpg://{user}:{pw}@{host}/{db}")
+        return self
+
+    @property
+    def db_connect_args(self) -> dict:
+        """asyncpg connect args. Neon (and any managed Postgres) needs TLS, which
+        asyncpg takes as an `ssl` kwarg — the libpq `?sslmode=`/`?channel_binding=`
+        query params in a Neon URL are not understood by asyncpg and must be
+        dropped from the URL. `statement_cache_size=0` keeps it safe behind Neon's
+        PgBouncer `-pooler` endpoint; harmless on a direct connection."""
+        if "neon.tech" in self.database_url:
+            return {"ssl": True, "statement_cache_size": 0}
+        return {}
 
     jwt_secret: str = "change-me"
     jwt_algorithm: str = "HS256"
