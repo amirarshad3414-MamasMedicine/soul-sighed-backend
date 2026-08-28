@@ -1,8 +1,32 @@
-# Where this stands — 2026-08-25
+# Where this stands — 2026-08-25 (updated 2026-08-27)
 
 FastAPI port of the Soul Sighted Xano backend. **Read this file first.**
 The plan lives in the frontend repo at
 `../mamas-medicine-frontend/xano-to-fastapi-migration-plan.md` (v4.1).
+
+## Update — 2026-08-27 (read this on top of everything below)
+
+**Now runs on Neon (Postgres 18), not local docker.** Set `NEONDB=<neon url>` in
+`.env`; `app/config.py` `_prefer_neon` converts it to the asyncpg **direct**
+endpoint (strips `-pooler`), drops libpq `?sslmode=`/`?channel_binding=`, and
+applies TLS via `db_connect_args`. Remove `NEONDB` to fall back to docker (5433).
+Alembic and the app both honour it. All Xano data is migrated in (indexes match
+Xano). Tools: `scripts/migrate_from_xano.py`, `scripts/copy_local_to_neon.py`.
+The Neon DB currently has **test pollution** — re-migrate clean before cutover.
+
+**Password answer shipped.** Xano hashes are peppered → unverifiable (settled).
+`auth/login` now returns `PASSWORD_RESET_REQUIRED` (409) for any non-Argon2 hash;
+the frontend redirects the user to reset, which re-hashes to Argon2. Deliberate
+parity exception. Pushed as `c4ef1cb`; Neon support as `1fe1905`. **Frontend
+changes for the redirect (+ the names-label fix) are uncommitted** — the user
+pushes those.
+
+**Klaviyo:** the marketing list-subscribe key (`pk_ab8…`) is **dead/revoked
+(401)** in both `.env` and the live Xano checkout stack — subscribe silently
+no-ops. The reading/teaser key is separate, lives in Vercel's env, and works.
+Fix = a fresh valid key in the backend `.env`.
+
+Everything below remains accurate except the "Postgres 16 / docker" runtime.
 
 ## Quick start
 
