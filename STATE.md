@@ -1,8 +1,38 @@
-# Where this stands — 2026-08-25 (updated 2026-08-27)
+# Where this stands — 2026-08-25 (updated 2026-08-31)
 
 FastAPI port of the Soul Sighted Xano backend. **Read this file first.**
 The plan lives in the frontend repo at
 `../mamas-medicine-frontend/xano-to-fastapi-migration-plan.md` (v4.1).
+
+## Update — 2026-08-31 (the cutover happened)
+
+**DEPLOYED AND LIVE** at `https://soulsighted.bytescripterz.com` on a
+DigitalOcean droplet (`ssh droplet`; code `/opt/soul-sighted-backend`, systemd
+unit `soul-sighted`, gunicorn+2 uvicorn workers behind nginx+TLS). The Stripe
+`checkout.session.completed` webhook points here now; real live purchases are
+recording in Neon. **The droplet and the Mac share ONE Neon database — running
+pytest locally TRUNCATEs it and wipes live data. Do not run the suite.**
+
+**Bug found by the first real purchases, fixed (`4692a2b`):** Stripe stores
+metadata as strings, so the webhook's `send_email` arrives as `"false"` —
+Xano's `to_bool` parsed it, the port's `bool()` saw a non-empty string as True
+and fired the insight email on *every* purchase. On dashboard purchases that
+was *before* the insight existed → customers got a blank reading, then the
+real one. Now parsed as the string it is.
+
+**Clean re-migration DONE (`485c649` tooling).** Ran
+`migrate_from_xano.py --target app` against live Xano on 2026-08-31: all 8
+tables, ALL COUNTS MATCH (132 users / 516 children / 413 purchases — incl. 2
+real purchases Xano took after the 08-27 snapshot), sequences reset, live API
+verified (migrated user → 409 PASSWORD_RESET_REQUIRED). Pre-wipe Neon state
+(test accounts + sim/live test purchases) is in `backups/neon-20260831T110833Z/`.
+`scripts/backup_neon.py` dumps all tables before any future destructive reload.
+
+**Email delivery reality-check:** teaser + OTP + purchase-alert go out via a
+personal-Gmail nodemailer route on the frontend and land in **spam** for strict
+receivers (proven with a university mailbox). The purchase alert goes to
+`hi@soul-sighted.com` (internal), the reading via Klaviyo lands fine. Proper
+fix pre-launch: send from the domain (transactional service or Klaviyo).
 
 ## Update — 2026-08-27 (read this on top of everything below)
 
@@ -12,14 +42,15 @@ endpoint (strips `-pooler`), drops libpq `?sslmode=`/`?channel_binding=`, and
 applies TLS via `db_connect_args`. Remove `NEONDB` to fall back to docker (5433).
 Alembic and the app both honour it. All Xano data is migrated in (indexes match
 Xano). Tools: `scripts/migrate_from_xano.py`, `scripts/copy_local_to_neon.py`.
-The Neon DB currently has **test pollution** — re-migrate clean before cutover.
+~~The Neon DB currently has test pollution — re-migrate clean before cutover.~~
+(Done 2026-08-31, see the block above.)
 
 **Password answer shipped.** Xano hashes are peppered → unverifiable (settled).
 `auth/login` now returns `PASSWORD_RESET_REQUIRED` (409) for any non-Argon2 hash;
 the frontend redirects the user to reset, which re-hashes to Argon2. Deliberate
-parity exception. Pushed as `c4ef1cb`; Neon support as `1fe1905`. **Frontend
-changes for the redirect (+ the names-label fix) are uncommitted** — the user
-pushes those.
+parity exception. Pushed as `c4ef1cb`; Neon support as `1fe1905`. The matching frontend changes
+were committed + pushed by the user (`1e93074`, `be13d20`); the reset redirect
+is now silent (no popup) at the user's request.
 
 **Klaviyo:** the marketing list-subscribe key (`pk_ab8…`) is **dead/revoked
 (401)** in both `.env` and the live Xano checkout stack — subscribe silently
