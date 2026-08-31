@@ -11,6 +11,9 @@ Load     — TRUNCATE the target tables and insert, preserving primary keys, in 
     python3 scripts/migrate_from_xano.py            # fresh extract from live Xano (read-only)
     python3 scripts/migrate_from_xano.py --from-backup backups/<stamp>
     python3 scripts/migrate_from_xano.py --dry-run  # extract+transform+count, no writes
+    python3 scripts/migrate_from_xano.py --target app  # load into the app's DB (Neon
+                                                    # when NEONDB is set) instead of
+                                                    # the local docker Postgres
 
 Passwords are copied verbatim. They are peppered and the port cannot verify them
 (settled 2026-08-27); this preserves the data for a later lazy-migration login path.
@@ -122,7 +125,19 @@ async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--from-backup")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--target", choices=["local", "app"], default="local",
+                    help="local = docker Postgres on 5433 (default); "
+                         "app = whatever app/config.py resolves (Neon when NEONDB is set)")
     args = ap.parse_args()
+
+    global DB
+    ssl = None
+    if args.target == "app":
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from app.config import settings
+        DB = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
+        ssl = "require" if "neon.tech" in DB else None
+        print(f"  target: app DB ({DB.split('@')[-1]})\n")
 
     tok = PAT_FILE.read_text().strip() if not args.from_backup else None
     extracted = {}
@@ -137,7 +152,7 @@ async def main():
     if args.dry_run:
         print("\n[dry-run] no writes."); return
 
-    conn = await asyncpg.connect(DB)
+    conn = await asyncpg.connect(DB, ssl=ssl)
     await conn.set_type_codec("jsonb", encoder=json.dumps, decoder=json.loads, schema="pg_catalog")
     try:
         async with conn.transaction():
@@ -160,7 +175,7 @@ async def main():
         await conn.close()
 
     # verify
-    conn = await asyncpg.connect(DB)
+    conn = await asyncpg.connect(DB, ssl=ssl)
     print("\n  VERIFY (loaded vs extracted):")
     ok = True
     for _x, _t, local in TABLES:
