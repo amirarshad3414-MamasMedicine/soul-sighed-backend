@@ -61,7 +61,15 @@ async def checkout(
     """
     event = await request.json()
     obj = (event or {}).get("data", {}).get("object", {}) or {}
-    send_email = bool((obj.get("metadata") or {}).get("send_email"))
+    # Stripe stores metadata values as strings, so send_email arrives as
+    # "true"/"false" — never a boolean. Xano parses it with `to_bool`; Python's
+    # bool() treats any non-empty string as True, which made every purchase
+    # fire the insight email — a dashboard purchase (sent as "false") fired it
+    # before submit_onboarding had generated anything, so the customer got a
+    # blank reading followed two minutes later by the real one. Parse the
+    # string the way to_bool does. str() keeps literal booleans working too.
+    raw_send_email = (obj.get("metadata") or {}).get("send_email")
+    send_email = str(raw_send_email).strip().lower() in ("true", "1")
     child_id = obj.get("client_reference_id")
 
     child: Child | None = None
